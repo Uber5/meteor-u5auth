@@ -1,0 +1,23 @@
+{
+  "name": "meteor-u5auth",
+  "version": "0.0.1",
+  "description": "Meteor package to authenticate against a OAuth2 provider",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@source.da-io.net:chris/meteor-u5auth.git"
+  },
+  "keywords": [
+    "meteor",
+    "auth",
+    "oauth2"
+  ],
+  "author": "Chris Oloff <chris@uber5.com> (http://about.uber5.com/)",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "21.2.1"
+  }
+}
