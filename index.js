@@ -1,3 +1,4 @@
+const invariant = require('invariant')
 
 // try to depend on a Meteor core package
 const r = require
@@ -7,9 +8,6 @@ const r = require
 const accountsBase = r('meteor/accounts-base')
 const ServiceConfiguration = r('meteor/service-configuration').ServiceConfiguration
 
-// console.log('requiring Meteor/accounts-base', accountsBase)
-console.log()
-
 exports.sayHello = function() {
   console.log('Hello from meteor-u5auth')
 }
@@ -17,8 +15,11 @@ exports.sayHello = function() {
 const loginStyle = 'redirect' // that's all we offer
 const service = 'u5auth'
 
+Accounts.oauth.registerService(service)
+
 const getConfig = function() {
-  const config = ServiceConfiguration.configurations.findOne({ service });
+  const config = ServiceConfiguration.configurations.findOne({ service })
+  invariant(config.issuer, 'Must provide "issuer" in u5auth config, see documentation of package "meteor-u5auth"')
   if (!config)
     throw new ServiceConfiguration.ConfigError(service);
   return config
@@ -41,7 +42,7 @@ if (Meteor.isClient) {
 
     let config
     try {
-      config = getConfig
+      config = getConfig()
     } catch(e) {
       return callback(new ServiceConfiguration.ConfigError(service))
     }
@@ -67,7 +68,7 @@ if (Meteor.isServer) {
     userAgent += "/" + Meteor.release
   }
 
-  var getToken = function (query) {
+  const getToken = function (query) {
     const config = getConfig()
 
     var response
@@ -101,6 +102,21 @@ if (Meteor.isServer) {
     }
   }
 
+  const getIdentity = function (accessToken) {
+    try {
+      return HTTP.get(
+        getConfig().issuer + "/userinfo", {
+          headers: {
+            "User-Agent": userAgent, // http://developer.github.com/v3/#user-agent-required
+            authorization: 'Bearer ' + accessToken
+          }
+        }).data;
+    } catch (err) {
+      throw _.extend(new Error("u5auth: failed to query /userinfo: " + err.message),
+                     {response: err.response});
+    }
+  }
+
   OAuth.registerService(service, 2, null, query => {
 
     console.log('about to getToken', query)
@@ -119,6 +135,8 @@ if (Meteor.isServer) {
     Object.keys(identity).forEach(key => {
       serviceData[key] = identity[key]
     })
+    console.log('serviceData', serviceData)
+    
     return {
       serviceData: serviceData,
       options: {profile: identity}
