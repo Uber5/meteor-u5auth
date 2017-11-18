@@ -1,4 +1,6 @@
 const invariant = require('invariant')
+const { shouldRefreshToken } = require('./lib/should-refresh-token')
+const { service } = require('./lib/service-name')
 
 // try to depend on a Meteor core package
 const r = require
@@ -8,18 +10,27 @@ const r = require
 const accountsBase = r('meteor/accounts-base')
 const ServiceConfiguration = r('meteor/service-configuration').ServiceConfiguration
 
-exports.sayHello = function() {
-  console.log('Hello from meteor-u5auth')
-}
-
 const loginStyle = 'redirect' // that's all we offer
-const service = 'u5auth'
+
+let _debug = false
+exports.setU5AuthDebug = () => _debug = true
+
+const log = function() {
+  if (!_debug) {
+    return
+  }
+  console.log.apply(this, [ 'meteor-u5auth DEBUG' ].concat(Array.prototype.slice.call(arguments)))
+}
 
 Accounts.oauth.registerService(service)
 
 const getConfig = function() {
   const config = ServiceConfiguration.configurations.findOne({ service })
   invariant(config.issuer, 'Must provide "issuer" in u5auth config, see documentation of package "meteor-u5auth"')
+  invariant(
+    config.ttl && Number(config.ttl) > 0,
+    'Must provide "ttl" in u5auth config, e.g. 3600 (seconds) for 60 minutes.'
+  )
   if (!config)
     throw new ServiceConfiguration.ConfigError(service);
   return config
@@ -44,12 +55,13 @@ if (Meteor.isClient) {
     try {
       config = getConfig()
     } catch(e) {
+      console.error(e)
       return callback(new ServiceConfiguration.ConfigError(service))
     }
 
     const credentialToken = Random.secret()
     const loginUrl = determineLoginUrl(config, credentialToken)
-    console.log('loginUrl', loginUrl)
+    log('loginUrl', loginUrl)
     OAuth.launchLogin({
       loginService: 'u5auth',
       loginStyle,
@@ -128,23 +140,24 @@ if (Meteor.isServer) {
 
   OAuth.registerService(service, 2, null, query => {
 
-    console.log('about to getToken', query)
+    log('about to getToken', query)
     const tokens = getToken(query)
-    console.log('tokens', tokens)
+    log('tokens', tokens)
     const identity = getIdentity(tokens.access_token)
-    console.log('identity', identity)
+    log('identity', identity)
   
     const serviceData = {
       id: identity.sub,
       accessToken: OAuth.sealSecret(tokens.access_token),
       refreshToken: OAuth.sealSecret(tokens.refresh_token),
       email: identity.sub,
-      username: identity.sub
+      username: identity.sub,
+      receivedAt: new Date().getTime()
     }
     Object.keys(identity).forEach(key => {
       serviceData[key] = identity[key]
     })
-    console.log('serviceData', serviceData)
+    log('serviceData', serviceData)
 
     return {
       serviceData: serviceData,
@@ -152,13 +165,51 @@ if (Meteor.isServer) {
     }
   })
 
+  const refreshToken = async (user, config) => {
+
+    log('about to refresh token, user', user)
+    
+    const body = 'grant_type=refresh_token' +
+      '&refresh_token=' + user.services[service].refreshToken +
+      '&client_id=' + config.clientId +
+      '&client_secret=' + OAuth.openSecret(config.secret);
+    const response = HTTP.post(
+      config.issuer + "/token", {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': userAgent,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      content: body
+    });
+    log('refreshToken, response', response)
+    const serviceData = response.data
+    Meteor.users.update({
+      _id: user._id
+    }, {
+      $set: {
+        [`services.${service}.accessToken`]: serviceData.access_token,
+        [`services.${service}.refreshToken`]: serviceData.refresh_token,
+        [`services.${service}.receivedAt`]: new Date().getTime()
+      }
+    })
+    log('token refreshed, user', user)
+
+  }
+
   const getLiveToken = () => new Promise((resolve, reject) => {
     const user = Meteor.user()
     if (!user) {
       return reject(new Meteor.Error('logged-out'))
     }
-    console.log('Meteor.user', Meteor.user())
-    setTimeout(() => resolve(345), 1000)
+    log('getLiveToken, user', user)
+    const config = getConfig()
+    if (shouldRefreshToken(user, config)) {
+      return refreshToken(user, config)
+        .then(() => resolve(Meteor.user().services[service].accessToken))
+    } else {
+      return resolve(user.services[service].accessToken)
+    }
   })
 
   Meteor.methods({
