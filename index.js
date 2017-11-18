@@ -58,6 +58,15 @@ if (Meteor.isClient) {
       credentialToken
     })
   }
+
+  exports.getLiveToken = () => new Promise((resolve, reject) => {
+    Meteor.call('meteor-u5auth/getLiveToken', (err, token) => {
+      if (err) {
+        return reject(err)
+      }
+      resolve(token)
+    })
+  })
 }
 
 if (Meteor.isServer) {
@@ -136,10 +145,28 @@ if (Meteor.isServer) {
       serviceData[key] = identity[key]
     })
     console.log('serviceData', serviceData)
-    
+
     return {
       serviceData: serviceData,
       options: {profile: identity}
     }
   })
+
+  const getLiveToken = () => new Promise((resolve, reject) => {
+    const user = Meteor.user()
+    if (!user) {
+      return reject(new Meteor.Error('logged-out'))
+    }
+    console.log('Meteor.user', Meteor.user())
+    setTimeout(() => resolve(345), 1000)
+  })
+
+  Meteor.methods({
+    'meteor-u5auth/getLiveToken': async () => {
+      return await getLiveToken()
+    }
+  })
+
+  exports.getLiveToken = getLiveToken
+
 }
