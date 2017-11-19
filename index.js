@@ -71,14 +71,19 @@ if (Meteor.isClient) {
     })
   }
 
-  exports.getLiveToken = () => new Promise((resolve, reject) => {
-    Meteor.call('meteor-u5auth/getLiveToken', (err, token) => {
+  const callMethodNoArgs = method => () => new Promise((resolve, reject) => {
+    Meteor.call(method, (err, result) => {
       if (err) {
         return reject(err)
+      } else {
+        resolve(result)
       }
-      resolve(token)
     })
   })
+
+  exports.getLiveToken = callMethodNoArgs('meteor-u5auth/getLiveToken')
+  exports.refreshUserinfo = callMethodNoArgs('meteor-u5auth/refreshUserinfo')
+
 }
 
 if (Meteor.isServer) {
@@ -150,25 +155,23 @@ if (Meteor.isServer) {
       id: identity.sub,
       accessToken: OAuth.sealSecret(tokens.access_token),
       refreshToken: OAuth.sealSecret(tokens.refresh_token),
-      email: identity.sub,
-      username: identity.sub,
       receivedAt: new Date().getTime()
     }
-    Object.keys(identity).forEach(key => {
-      serviceData[key] = identity[key]
-    })
+    Object.assign(serviceData, identity)
     log('serviceData', serviceData)
 
     return {
       serviceData: serviceData,
-      options: {profile: identity}
+      options: {
+        profile: identity
+      }
     }
   })
 
   const refreshToken = async (user, config) => {
 
     log('about to refresh token, user', user)
-    
+
     const body = 'grant_type=refresh_token' +
       '&refresh_token=' + user.services[service].refreshToken +
       '&client_id=' + config.clientId +
@@ -215,6 +218,26 @@ if (Meteor.isServer) {
   Meteor.methods({
     'meteor-u5auth/getLiveToken': async () => {
       return await getLiveToken()
+    },
+    'meteor-u5auth/refreshUserinfo': () => {
+      const userId = Meteor.user()._id
+      const token = Promise.await(getLiveToken())
+      const userinfo = getIdentity(token)
+      log('refreshUserinfo, userId, userinfo', userId, userinfo)
+      const op = {
+        $set: {}
+      }
+      Object.keys(userinfo).forEach(key => {
+        op.$set[`services.${service}.${key}`] = userinfo[key]
+      })
+      log('refreshUserinfo, op', op)
+      Meteor.users.update(
+        {
+          _id: userId
+        },
+        op
+      )
+      log('token refreshed, userId', userId)
     }
   })
 
