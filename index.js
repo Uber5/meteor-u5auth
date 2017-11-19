@@ -6,9 +6,9 @@ const { service } = require('./lib/service-name')
 const r = require
 
 // this will crash, unless `meteor add accounts-base` has been done in the project?
-// TODO: issue meaningful error in case of error or null
-const accountsBase = r('meteor/accounts-base')
-const ServiceConfiguration = r('meteor/service-configuration').ServiceConfiguration
+// TODO: this seemed to work when using 'npm link', but not when installing from npm?
+//const accountsBase = r('meteor/accounts-base')
+//const ServiceConfiguration = r('meteor/service-configuration').ServiceConfiguration
 
 const loginStyle = 'redirect' // that's all we offer
 
