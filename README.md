@@ -68,7 +68,7 @@ Meteor.loginWithU5Auth({}, err => {
 
 ## Logging Out
 
-Use [`Meteor.logoug`](https://docs.meteor.com/v1.4.4/api/accounts.html#Meteor-logout):
+Use [`Meteor.logout`](https://docs.meteor.com/v1.4.4/api/accounts.html#Meteor-logout):
 
 ```javascript
 Meteor.logout()
