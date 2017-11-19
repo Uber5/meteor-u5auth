@@ -54,6 +54,8 @@ Meteor.startup(() => {
 
 # Usage
 
+See also [the example app](https://github.com/Uber5/meteor-auth-demo).
+
 ## Logging In
 
 On the client, use `Meteor.loginWithU5Auth()`:
