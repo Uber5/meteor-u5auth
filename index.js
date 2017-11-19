@@ -24,15 +24,26 @@ const log = function() {
 
 Accounts.oauth.registerService(service)
 
-const getConfig = function() {
-  const config = ServiceConfiguration.configurations.findOne({ service })
-  invariant(config.issuer, 'Must provide "issuer" in u5auth config, see documentation of package "meteor-u5auth"')
+const validateConfig = config => {
+  const keys = Meteor.isServer ? [ 'clientId', 'issuer', 'secret' ] : [ 'clientId', 'issuer']
+  keys.forEach(key => {
+    invariant(
+      config[key],
+      `Must provide "${key}" in u5auth config, see documentation of package "meteor-u5auth"`
+    )
+  })
   invariant(
     config.ttl && Number(config.ttl) > 0,
     'Must provide "ttl" in u5auth config, e.g. 3600 (seconds) for 60 minutes.'
   )
-  if (!config)
-    throw new ServiceConfiguration.ConfigError(service);
+  return true
+}
+
+const getConfig = function() {
+  const config = ServiceConfiguration.configurations.findOne({ service })
+  if (!config || !validateConfig(config)) {
+    throw new ServiceConfiguration.ConfigError(service)
+  }
   return config
 }
 
