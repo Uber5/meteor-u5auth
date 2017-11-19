@@ -10,7 +10,7 @@ Add Oauth2 authentication to your Meteor app, supports Meteor 1.5+
 ```sh
 meteor add accounts-base accounts-oauth service-configuration \
   random oauth oauth2 http
-meteor npm add meteor-u5auth
+meteor npm install meteor-u5auth
 ```
 
 2) Configure Service
