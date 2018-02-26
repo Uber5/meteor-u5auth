@@ -221,6 +221,18 @@ if (Meteor.isServer) {
     if (shouldRefreshToken(user, config)) {
       return refreshToken(user, config)
         .then(() => resolve(Meteor.user().services[service].accessToken))
+        .catch(err => {
+          // if we can't refresh, we have to log out
+          Meteor.users.update({ // TODO: we remove service details, this may be unnecessary
+            _id: user._id
+          }, {
+            $set: {
+              [`services.${service}`]: null,
+            }
+          })
+          Meteor.logout()
+          return reject(new Meteor.Error('logged-out'))
+        })
     } else {
       return resolve(user.services[service].accessToken)
     }
