@@ -1,6 +1,6 @@
 {
   "name": "meteor-u5auth",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Meteor package to authenticate against a OAuth2 provider",
   "main": "index.js",
   "scripts": {
